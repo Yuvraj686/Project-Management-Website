@@ -25,7 +25,9 @@ from config import settings
 from database import AsyncSessionLocal
 from models.message import ChatMessage, ChatRoom
 from models.user import TeamMember, User
+from models.project import Project
 from services.redis_service import get_redis, publish, cache_get
+from services.ai_service import get_assistant_response
 
 router = APIRouter()
 
@@ -64,6 +66,11 @@ async def websocket_chat(
         if not room:
             await websocket.close(code=4004, reason="Room not found")
             return
+            
+        # Fetch project info for context
+        res = await db.execute(select(Project).where(Project.id == room.project_id))
+        project = res.scalar_one_or_none()
+        project_name = project.name if project else "the project"
 
         # Check project membership
         member = await db.execute(
@@ -121,6 +128,34 @@ async def websocket_chat(
                 "timestamp": now.isoformat(),
             }
             await publish(channel, payload)
+
+            # ── Check for @assistant mention ──────────────────────────────────
+            # Only trigger if "@assistant" is used, or in any DM
+            if "@assistant" in data.lower():
+                async def _call_assistant():
+                    try:
+                        ai_text = await get_assistant_response(
+                            {
+                                "is_private": room.is_private,
+                                "room_name": room.name or "General",
+                                "project_name": project_name
+                            },
+                            data
+                        )
+                        
+                        ai_payload = {
+                            "type": "message",
+                            "room_id": room_id,
+                            "sender_id": 0, # Virtual AI user ID
+                            "sender_name": "Antigravity Assistant",
+                            "content": ai_text,
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                        }
+                        await publish(channel, ai_payload)
+                    except Exception as e:
+                        print(f"Assistant error: {e}")
+                
+                asyncio.create_task(_call_assistant())
 
     except WebSocketDisconnect:
         pass

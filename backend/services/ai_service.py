@@ -9,6 +9,7 @@ Implements three async helpers:
   - review_project()             : full project audit
   - generate_deadline_warning()  : context-aware deadline alert with sprint plan
   - summarize_diff()             : plain-English diff summary for changelog
+  - get_assistant_response()     : Team-focused AI assistant persona
 """
 
 from google import genai
@@ -162,6 +163,59 @@ Be specific. Reference actual file names and function names if visible in the di
             config=genai.types.GenerateContentConfig(
                 temperature=0.3,
                 max_output_tokens=256,
+            ),
+        )
+    )
+    return response.text
+
+
+async def get_assistant_response(context_data: dict, user_message: str) -> str:
+    """
+    Generate a response from the Antigravity Assistant.
+
+    Args:
+        context_data: dict with room info, project name, etc.
+        user_message: the user's latest query
+
+    Returns:
+        concise, professional assistant response.
+    """
+    is_group = not context_data.get("is_private", False)
+    room_name = context_data.get("room_name", "General")
+    project_name = context_data.get("project_name", "the project")
+
+    system_prompt = f"""You are Antigravity Assistant, the built-in AI helper for the Antigravity team collaboration platform.
+Your role is to support team members within their chat environment.
+
+## Current Context
+- Chat Type: {"Group Conversation" if is_group else "1-on-1 / Personal Chat"}
+- Room: {f"#{room_name}" if is_group else "Private DM"}
+- Project: {project_name}
+
+## Your Persona & Guidelines
+- Help team members communicate clearly and professionally.
+- Summarize long group conversations when asked.
+- Draft or improve messages, announcements, or updates.
+- Answer questions related to team tasks, coordination, and collaboration.
+- Suggest action items or next steps from discussions.
+- Help resolve misunderstandings by rephrasing messages neutrally.
+- Tone: Friendly, professional, and inclusive.
+- Format: Keep responses concise and relevant to the conversation context.
+- Privacy: NEVER reference content from other chats or users not in this conversation.
+- Addressing: {"Address the group collectively unless responding to a specific person" if is_group else "Keep a warm and 1-on-1 focused tone"}.
+- Neutrality: Never take sides in team disagreements — stay neutral and constructive."""
+
+    prompt = f"{system_prompt}\n\nUser Message: {user_message}\n\nAssistant:"
+
+    loop = asyncio.get_event_loop()
+    response = await loop.run_in_executor(
+        None,
+        lambda: client.models.generate_content(
+            model=_MODEL_NAME,
+            contents=prompt,
+            config=genai.types.GenerateContentConfig(
+                temperature=0.7,
+                max_output_tokens=512,
             ),
         )
     )

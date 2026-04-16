@@ -20,7 +20,7 @@ elif _db_url.startswith("postgres://"):
 # ── Async Engine ────────────────────────────────────────────────────────────
 engine = create_async_engine(
     _db_url,
-    echo=(settings.APP_ENV == "development"),  # Log SQL only in dev
+    echo=False,                                 # Disable SQL logging
     pool_pre_ping=True,                         # Detect stale connections
     pool_size=10,
     max_overflow=20,

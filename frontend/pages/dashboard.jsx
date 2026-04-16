@@ -10,7 +10,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { Plus, FolderOpen, Loader, X, Calendar } from "lucide-react";
+import { Plus, FolderOpen, Loader, X, Calendar, MessageSquare } from "lucide-react";
 import api from "../lib/api";
 import DeadlineCard from "../components/DeadlineCard";
 import FileUpload from "../components/FileUpload";
@@ -181,6 +181,17 @@ export default function DashboardPage() {
                       />
                     </div>
                     <p className="text-xs text-white/40 mt-1">{selectedProject.completion_pct?.toFixed(0)}% complete</p>
+                  </div>
+
+                  {/* Chat Shortcut */}
+                  <div className="pt-3">
+                    <button 
+                      onClick={() => window.location.href = `/chat?project=${selectedProject.id}`}
+                      className="w-full btn-secondary py-2 text-xs flex items-center justify-center gap-2"
+                    >
+                      <MessageSquare size={14} />
+                      Open Project Chat
+                    </button>
                   </div>
                   
                   {/* Invite Member */}

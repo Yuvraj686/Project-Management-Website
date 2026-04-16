@@ -26,6 +26,8 @@ from database import get_db
 from middleware.auth_middleware import get_current_user
 from models.project import Project, Task
 from models.user import TeamMember, RoleEnum, User
+from models.message import ChatRoom
+from schemas.chat import ChatRoomCreate, ChatRoomOut
 from schemas.project import (
     AddMemberRequest,
     ProjectCreate,
@@ -195,6 +197,37 @@ async def remove_member(
     await db.delete(target)
 
 
+@router.get("/{project_id}/members", response_model=List[TeamMemberOut])
+async def list_members(
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List all members of a project."""
+    await _require_member(project_id, current_user.id, db)
+    
+    result = await db.execute(
+        select(TeamMember)
+        .where(TeamMember.project_id == project_id)
+        .options(selectinload(TeamMember.user))
+    )
+    members = result.scalars().all()
+    
+    # Map to TeamMemberOut
+    return [
+        TeamMemberOut(
+            id=m.id,
+            user_id=m.user_id,
+            project_id=m.project_id,
+            role=m.role,
+            name=m.user.name,
+            email=m.user.email,
+            joined_at=m.joined_at
+        )
+        for m in members
+    ]
+
+
 # ── Tasks ─────────────────────────────────────────────────────────────────────
 
 @router.get("/{project_id}/tasks", response_model=List[TaskOut])
@@ -263,3 +296,96 @@ async def delete_task(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     await db.delete(task)
+
+
+# ── Chat Rooms ────────────────────────────────────────────────────────────────
+
+@router.get("/{project_id}/rooms", response_model=List[ChatRoomOut])
+async def list_project_rooms(
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    List all accessible chat rooms for a project.
+    - Public channels are visible to all members.
+    - Private DM rooms are only visible if the user is in member_ids.
+    """
+    await _require_member(project_id, current_user.id, db)
+    
+    result = await db.execute(
+        select(ChatRoom).where(ChatRoom.project_id == project_id)
+    )
+    rooms = result.scalars().all()
+    
+    visible_rooms = []
+    for r in rooms:
+        if not r.is_private:
+            visible_rooms.append(r)
+        else:
+            member_ids = r.get_member_ids()
+            if current_user.id in member_ids:
+                visible_rooms.append(r)
+                
+    return visible_rooms
+
+
+@router.post("/{project_id}/rooms", response_model=ChatRoomOut, status_code=201)
+async def create_or_get_room(
+    project_id: int,
+    payload: ChatRoomCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Create a new chat room or return an existing one (for DMs).
+    """
+    await _require_member(project_id, current_user.id, db)
+    
+    # For DMs, check if a room already exists between these members
+    if payload.is_private and payload.member_ids:
+        # Ensure current user is in member_ids if not already
+        mids = payload.member_ids
+        if current_user.id not in mids:
+            mids.append(current_user.id)
+        
+        mids_str = ",".join(str(i) for i in sorted(mids))
+        
+        existing = await db.execute(
+            select(ChatRoom)
+            .where(ChatRoom.project_id == project_id)
+            .where(ChatRoom.is_private == True)
+            .where(ChatRoom.member_ids == mids_str)
+        )
+        room = existing.scalars().first()
+        if room:
+            return room
+            
+        new_room = ChatRoom(
+            project_id=project_id,
+            is_private=True,
+            member_ids=mids_str,
+            name=payload.name # Could be "User A, User B"
+        )
+    else:
+        # For public channels, check by name
+        existing = await db.execute(
+            select(ChatRoom)
+            .where(ChatRoom.project_id == project_id)
+            .where(ChatRoom.name == payload.name)
+            .where(ChatRoom.is_private == False)
+        )
+        room = existing.scalars().first()
+        if room:
+            return room
+            
+        new_room = ChatRoom(
+            project_id=project_id,
+            name=payload.name,
+            is_private=False
+        )
+
+    db.add(new_room)
+    await db.flush()
+    await db.refresh(new_room)
+    return new_room

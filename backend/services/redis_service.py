@@ -23,7 +23,6 @@ def get_redis() -> aioredis.Redis:
             settings.REDIS_URL,
             encoding="utf-8",
             decode_responses=True,
-            ssl_cert_reqs=None,  # Required for Upstash TLS
         )
     return _redis
 

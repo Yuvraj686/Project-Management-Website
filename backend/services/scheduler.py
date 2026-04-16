@@ -21,6 +21,7 @@ from models.changelog import ChangeLogEntry, ChangeSource
 from services import ai_service, email_service, redis_service
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
+from models.message import ChatRoom
 
 # ── Scheduler instance ───────────────────────────────────────────────────────
 _scheduler = AsyncIOScheduler(timezone="UTC")
@@ -97,14 +98,23 @@ async def _check_deadlines() -> None:
                     f"⚠️ Deadline in {days_remaining:.1f} days — {project.completion_pct:.0f}% complete."
                 )
 
-            # Broadcast to Redis channel
-            channel = f"room:{project.id}"
-            await redis_service.publish(channel, {
-                "type": "deadline_warning",
-                "room_id": project.id,
-                "content": warning_text,
-                "timestamp": now.isoformat(),
-            })
+            # Broadcast to the project's #general chat room
+            # We find the room named 'general' for this project
+            room_res = await db.execute(
+                select(ChatRoom)
+                .where(ChatRoom.project_id == project.id)
+                .where(ChatRoom.name == "general")
+            )
+            general_room = room_res.scalar_one_or_none()
+            
+            if general_room:
+                channel = f"room:{general_room.id}"
+                await redis_service.publish(channel, {
+                    "type": "deadline_warning",
+                    "room_id": general_room.id,
+                    "content": warning_text,
+                    "timestamp": now.isoformat(),
+                })
 
             # Log to changelog
             entry = ChangeLogEntry(
