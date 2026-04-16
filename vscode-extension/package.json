@@ -1,0 +1,60 @@
+{
+  "name": "teamforge",
+  "displayName": "TeamForge",
+  "description": "Tracks file saves and sends diffs to the TeamForge backend for AI-powered changelog summaries.",
+  "version": "1.0.0",
+  "publisher": "teamforge",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "teamforge.setProjectId",
+        "title": "TeamForge: Set Project ID"
+      },
+      {
+        "command": "teamforge.setToken",
+        "title": "TeamForge: Set Auth Token"
+      }
+    ],
+    "configuration": {
+      "title": "TeamForge",
+      "properties": {
+        "teamforge.apiUrl": {
+          "type": "string",
+          "default": "http://localhost:8000",
+          "description": "TeamForge backend API URL"
+        },
+        "teamforge.projectId": {
+          "type": "number",
+          "default": null,
+          "description": "The TeamForge project ID to link this workspace to"
+        },
+        "teamforge.token": {
+          "type": "string",
+          "default": "",
+          "description": "Your TeamForge JWT auth token"
+        },
+        "teamforge.authorName": {
+          "type": "string",
+          "default": "",
+          "description": "Your display name for changelog entries (defaults to git username)"
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "axios": "^1.7.2"
+  },
+  "scripts": {
+    "package": "npx vsce package"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^2.26.0"
+  }
+}
