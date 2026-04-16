@@ -8,7 +8,7 @@ Endpoints:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from passlib.context import CryptContext
+import bcrypt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,18 +18,21 @@ from models.user import User
 from schemas.auth import Token, UserCreate, UserLogin, UserOut
 
 router = APIRouter()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-
 def hash_password(password: str) -> str:
     """Hash a plaintext password using bcrypt."""
     # bcrypt rejects passwords > 72 bytes; truncate safely to prevent server crashes
-    return pwd_context.hash(password[:72])
+    pwd_bytes = password[:72].encode('utf-8')
+    return bcrypt.hashpw(pwd_bytes, bcrypt.gensalt()).decode('utf-8')
 
 
 def verify_password(plain: str, hashed: str) -> bool:
     """Verify a plaintext password against its bcrypt hash."""
-    return pwd_context.verify(plain[:72], hashed)
+    plain_bytes = plain[:72].encode('utf-8')
+    hashed_bytes = hashed.encode('utf-8')
+    try:
+        return bcrypt.checkpw(plain_bytes, hashed_bytes)
+    except ValueError:
+        return False
 
 
 @router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)

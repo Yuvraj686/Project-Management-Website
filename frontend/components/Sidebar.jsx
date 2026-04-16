@@ -70,24 +70,20 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* User info & logout */}
+      {/* User info & Link to Profile */}
       <div className="p-4 border-t border-white/5">
-        <div className="flex items-center gap-3 px-2 mb-3">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-accent-purple flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
+        <Link 
+          href="/profile" 
+          className="flex items-center gap-3 px-2 py-2 hover:bg-white/5 rounded-xl transition-all duration-200 cursor-pointer group"
+        >
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-accent-purple flex items-center justify-center text-xs font-bold text-white flex-shrink-0 group-hover:scale-105 transition-transform">
             {user?.name?.[0]?.toUpperCase() || "U"}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate">{user?.name || "User"}</p>
+            <p className="text-sm font-medium text-white truncate group-hover:text-brand-300 transition-colors">{user?.name || "User"}</p>
             <p className="text-xs text-white/40 truncate">{user?.email || ""}</p>
           </div>
-        </div>
-        <button
-          onClick={logout}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-white/50 hover:text-white hover:bg-white/5 transition-all duration-200"
-        >
-          <LogOut size={16} />
-          Sign out
-        </button>
+        </Link>
       </div>
     </aside>
   );

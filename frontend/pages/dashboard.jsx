@@ -25,6 +25,9 @@ export default function DashboardPage() {
   const [selectedProject, setSelectedProject] = useState(null);
   const [form, setForm] = useState({ name: "", description: "", stack: "", deadline: "" });
   const [creating, setCreating] = useState(false);
+  const [inviteUserId, setInviteUserId] = useState("");
+  const [inviteRole, setInviteRole] = useState("dev");
+  const [inviting, setInviting] = useState(false);
   const user = getCurrentUser();
 
   useEffect(() => {
@@ -60,6 +63,24 @@ export default function DashboardPage() {
       toast.error(err.response?.data?.detail || "Failed to create project");
     } finally {
       setCreating(false);
+    }
+  };
+
+  const inviteMember = async (e) => {
+    e.preventDefault();
+    if (!inviteUserId) return;
+    setInviting(true);
+    try {
+      await api.post(`/projects/${selectedProject.id}/members`, {
+        user_id: parseInt(inviteUserId),
+        role: inviteRole,
+      });
+      toast.success("Member invited successfully!");
+      setInviteUserId("");
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to invite member");
+    } finally {
+      setInviting(false);
     }
   };
 
@@ -160,6 +181,33 @@ export default function DashboardPage() {
                       />
                     </div>
                     <p className="text-xs text-white/40 mt-1">{selectedProject.completion_pct?.toFixed(0)}% complete</p>
+                  </div>
+                  
+                  {/* Invite Member */}
+                  <div className="pt-4 mt-2 border-t border-white/5">
+                    <p className="text-xs text-white/40 mb-2">Invite Member (by User ID)</p>
+                    <form onSubmit={inviteMember} className="flex items-center gap-2">
+                        <input 
+                            type="number"
+                            value={inviteUserId}
+                            onChange={(e) => setInviteUserId(e.target.value)}
+                            placeholder="User ID (e.g. 2)"
+                            className="bg-surface-0 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-white/30 w-full focus:outline-none focus:ring-1 focus:ring-brand-500"
+                        />
+                        <select 
+                            value={inviteRole}
+                            onChange={(e) => setInviteRole(e.target.value)}
+                            className="bg-surface-0 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none"
+                        >
+                            <option value="dev">Dev</option>
+                            <option value="designer">Designer</option>
+                            <option value="pm">PM</option>
+                            <option value="viewer">Viewer</option>
+                        </select>
+                        <button type="submit" disabled={inviting} className="btn-primary py-1.5 px-3 text-xs whitespace-nowrap">
+                            {inviting ? "Wait..." : "Invite"}
+                        </button>
+                    </form>
                   </div>
                 </div>
               </div>

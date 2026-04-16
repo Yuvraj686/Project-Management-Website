@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from config import settings
 from database import get_db
 from models.user import User
+from services.redis_service import cache_get
 
 bearer_scheme = HTTPBearer()
 
@@ -72,6 +73,7 @@ async def get_current_user(
         user_id: str = payload.get("sub")
         if user_id is None:
             raise credentials_exception
+
     except JWTError:
         raise credentials_exception
 

@@ -17,6 +17,10 @@ import clsx from "clsx";
 export default function ChatWindow({ roomId, roomName = "General" }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
+  const [alias, setAlias] = useState(() => {
+    if (typeof window !== "undefined") return localStorage.getItem("teamforge_alias") || "";
+    return "";
+  });
   const [connected, setConnected] = useState(false);
   const bottomRef = useRef(null);
   const wsRef = useRef(null);
@@ -43,9 +47,19 @@ export default function ChatWindow({ roomId, roomName = "General" }) {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const handleAliasChange = (e) => {
+    setAlias(e.target.value);
+    localStorage.setItem("teamforge_alias", e.target.value);
+  };
+
   const sendMessage = () => {
-    const trimmed = input.trim();
+    let trimmed = input.trim();
     if (!trimmed || !wsRef.current) return;
+    
+    if (alias) {
+      trimmed = `[${alias}] ` + trimmed;
+    }
+    
     wsRef.current.send(trimmed);
     setInput("");
   };
@@ -138,6 +152,12 @@ export default function ChatWindow({ roomId, roomName = "General" }) {
       {/* Input */}
       <div className="px-5 py-4 border-t border-white/5 bg-surface-1">
         <div className="flex items-end gap-3">
+          <input
+            value={alias}
+            onChange={handleAliasChange}
+            placeholder="Alias (opt)"
+            className="w-24 bg-surface-0 border border-white/10 rounded-xl px-3 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-brand-500/50 transition-all font-medium"
+          />
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
